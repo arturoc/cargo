@@ -242,6 +242,8 @@ fn scrape_target_config(config: &Config, triple: &str)
         let mut output = BuildOutput {
             library_paths: Vec::new(),
             library_links: Vec::new(),
+            framework_paths: Vec::new(),
+            framework_links: Vec::new(),
             metadata: Vec::new(),
         };
         let key = format!("{}.{}", key, lib_name);
@@ -251,11 +253,13 @@ fn scrape_target_config(config: &Config, triple: &str)
             let (v, path) = try!(config.get_string(&key[])).unwrap();
             if k == "rustc-flags" {
                 let whence = format!("in `{}` (in {:?})", key, path);
-                let (paths, links) = try!(
+                let (paths, links, fpaths, flinks) = try!(
                     BuildOutput::parse_rustc_flags(&v, &whence[])
                 );
                 output.library_paths.extend(paths.into_iter());
                 output.library_links.extend(links.into_iter());
+                output.framework_paths.extend(fpaths.into_iter());
+                output.framework_links.extend(flinks.into_iter());
             } else {
                 output.metadata.push((k, v));
             }

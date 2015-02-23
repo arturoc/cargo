@@ -58,9 +58,9 @@ impl<'a, T, F> ChainError<T> for F where F: FnOnce() -> CargoResult<T> {
     }
 }
 
-impl<T, E: CargoError> ChainError<T> for Result<T, E> {
+impl<T, E: CargoError + 'static> ChainError<T> for Result<T, E> {
     fn chain_error<E2, C>(self, callback: C) -> CargoResult<T>
-                         where E2: CargoError, C: FnOnce() -> E2 {
+                         where E2: CargoError + 'static, C: FnOnce() -> E2 {
         self.map_err(move |err| {
             Box::new(ChainedError {
                 error: callback(),
@@ -72,7 +72,7 @@ impl<T, E: CargoError> ChainError<T> for Result<T, E> {
 
 impl<T> ChainError<T> for Option<T> {
     fn chain_error<E, C>(self, callback: C) -> CargoResult<T>
-                         where E: CargoError, C: FnOnce() -> E {
+                         where E: CargoError + 'static, C: FnOnce() -> E {
         match self {
             Some(t) => Ok(t),
             None => Err(Box::new(callback()) as Box<CargoError>),
@@ -254,7 +254,7 @@ from_error! {
     toml::DecodeError,
 }
 
-impl<E: CargoError> FromError<Human<E>> for Box<CargoError> {
+impl<E: CargoError + 'static> FromError<Human<E>> for Box<CargoError> {
     fn from_error(t: Human<E>) -> Box<CargoError> { Box::new(t) }
 }
 
@@ -335,7 +335,7 @@ pub fn human<S: fmt::Display>(error: S) -> Box<CargoError> {
     })
 }
 
-pub fn caused_human<S: fmt::Display, E: Error + Send>(error: S, cause: E) -> Box<CargoError> {
+pub fn caused_human<S: fmt::Display, E: Error + Send + 'static>(error: S, cause: E) -> Box<CargoError> {
     Box::new(ConcreteCargoError {
         description: error.to_string(),
         detail: None,

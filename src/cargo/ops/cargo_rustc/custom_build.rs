@@ -21,6 +21,10 @@ pub struct BuildOutput {
     pub library_paths: Vec<Path>,
     /// Names and link kinds of libraries, suitable for the `-l` flag
     pub library_links: Vec<String>,
+    /// Paths to pass to rustc with the `-F` flag
+    pub framework_paths: Vec<Path>,
+    /// Names and link kinds of libraries, suitable for the `-framework` flag
+    pub framework_links: Vec<String>,
     /// Metadata to pass to the immediate dependencies
     pub metadata: Vec<(String, String)>,
 }
@@ -259,6 +263,8 @@ impl BuildOutput {
     pub fn parse(input: &str, pkg_name: &str) -> CargoResult<BuildOutput> {
         let mut library_paths = Vec::new();
         let mut library_links = Vec::new();
+        let mut framework_paths = Vec::new();
+        let mut framework_links = Vec::new();
         let mut metadata = Vec::new();
         let whence = format!("build script of `{}`", pkg_name);
 
@@ -285,11 +291,13 @@ impl BuildOutput {
             };
 
             if key == "rustc-flags" {
-                let (libs, links) = try!(
+                let (libs, links, frameworks, flinks) = try!(
                     BuildOutput::parse_rustc_flags(value, &whence)
                 );
                 library_links.extend(links.into_iter());
                 library_paths.extend(libs.into_iter());
+                framework_links.extend(flinks.into_iter());
+                framework_paths.extend(frameworks.into_iter());
             } else {
                 metadata.push((key.to_string(), value.to_string()))
             }
@@ -298,23 +306,26 @@ impl BuildOutput {
         Ok(BuildOutput {
             library_paths: library_paths,
             library_links: library_links,
+            framework_paths: framework_paths,
+            framework_links: framework_links,
             metadata: metadata,
         })
     }
 
     pub fn parse_rustc_flags(value: &str, whence: &str)
-                             -> CargoResult<(Vec<Path>, Vec<String>)> {
+                             -> CargoResult<(Vec<Path>, Vec<String>, Vec<Path>, Vec<String>)> {
         // TODO: some arguments (like paths) may contain spaces
         let value = value.trim();
         let mut flags_iter = value.words();
         let (mut library_links, mut library_paths) = (Vec::new(), Vec::new());
+        let (mut framework_links, mut framework_paths) = (Vec::new(), Vec::new());
         loop {
             let flag = match flags_iter.next() {
                 Some(f) => f,
                 None => break
             };
-            if flag != "-l" && flag != "-L" {
-                return Err(human(format!("Only `-l` and `-L` flags are allowed \
+            if flag != "-l" && flag != "-L" && flag != "-framework" && flag != "-F" {
+                return Err(human(format!("Only `-l` and `-L` (and -framework and -F on osx) flags are allowed \
                                          in {}: `{}`",
                                          whence, value)))
             }
@@ -327,11 +338,13 @@ impl BuildOutput {
             match flag {
                 "-l" => library_links.push(value.to_string()),
                 "-L" => library_paths.push(Path::new(value)),
+                "-framework" => framework_links.push(value.to_string()),
+                "-F" => framework_paths.push(Path::new(value)),
 
                 // was already checked above
                 _ => return Err(human("only -l and -L flags are allowed"))
             };
         }
-        Ok((library_paths, library_links))
+        Ok((library_paths, library_links, framework_paths, framework_links))
     }
 }

@@ -209,7 +209,7 @@ pub fn compile_targets<'a, 'b>(env: &str,
 fn compile<'a, 'b>(targets: &[&'a Target], pkg: &'a Package,
                    compiled: bool,
                    cx: &mut Context<'a, 'b>,
-                   jobs: &mut JobQueue<'a, 'b>) -> CargoResult<()> {
+                   jobs: &mut JobQueue<'a>) -> CargoResult<()> {
     debug!("compile_pkg; pkg={}", pkg);
     let _p = profile::start(format!("preparing: {}", pkg));
 
@@ -424,6 +424,14 @@ fn rustc(package: &Package, target: &Target,
             if pass_l_flag && id == *current_id {
                 for name in output.library_links.iter() {
                     rustc = rustc.arg("-l").arg(name);
+                }
+            }
+            for path in output.framework_paths.iter() {
+                rustc = rustc.arg("-F").arg(path);
+            }
+            if pass_l_flag && id == *current_id {
+                for name in output.framework_links.iter() {
+                    rustc = rustc.arg("-framework").arg(name);
                 }
             }
         }
